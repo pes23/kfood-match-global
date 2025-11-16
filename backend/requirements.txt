@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pandas
+numpy
+faiss-cpu
+python-dotenv
+openai>=1.0.0
+requests
