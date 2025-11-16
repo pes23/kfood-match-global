@@ -4,14 +4,12 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pydantic import BaseModel
+import httpx
 
-# 로컬 모듈 임포트
 from app.service.ai_service import generate_food_profile, generate_justification
 from app.service.faiss_client import search_faiss_api, generate_embedding 
 
-# ----------------------------------------------------
-# 1. Pydantic 모델 정의 (프론트엔드 연동)
-# ----------------------------------------------------
+# Pydantic 모델 정의 (프론트엔드 연동)
 
 class RecommendationItem(BaseModel):
     name: str
@@ -24,13 +22,11 @@ class RecommendationResponse(BaseModel):
     input_food: str
     items: List[RecommendationItem]
 
-# ----------------------------------------------------
-# 2. FastAPI 초기화 및 CORS 설정
-# ----------------------------------------------------
+# FastAPI 초기화 및 CORS 설정
 
 app = FastAPI(title="K-Food Match Backend API")
 
-origins = ["http://localhost:3000"] # Next.js 개발 환경
+origins = ["http://localhost:3000"] 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -39,16 +35,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----------------------------------------------------
-# 3. 핵심 엔드포인트
-# ----------------------------------------------------
+# /recommend 엔드포인트 구현
 
 @app.post("/recommend", response_model=RecommendationResponse)
 async def recommend_kfood(
     foreign_food: str = Query(..., description="사용자가 입력한 외국 음식 이름")
 ):
     """
-    외국 음식 이름을 기반으로 K-푸드를 추천하고 상세 근거를 반환하는 엔드포인트.
+    외국 음식 이름 기반으로 K-푸드를 추천하고 상세 근거를 반환하는 엔드포인트.
     """
     
     try:
@@ -64,7 +58,7 @@ async def recommend_kfood(
         
         # --- 4. GPT 유사성 설명 생성 (Mock) ---
         # 후보군에 대한 추천 이유를 생성하여 items에 'reason' 필드를 추가
-        final_items = generate_justification(candidate_items, food_profile, foreign_food)
+        final_items = generate_justification(food_profile, candidate_items, foreign_food)
         
         # --- 5. 최종 번역 (Translate Service 호출 로직이 여기에 삽입됨) ---
         # (번역 서비스 클라이언트가 구현되면 이 위치에서 최종 번역을 수행)
@@ -85,10 +79,5 @@ async def recommend_kfood(
         # 일반적인 서버 오류 처리
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
-# ----------------------------------------------------
-# 4. 서버 실행 안내
-# ----------------------------------------------------
-# 로컬 실행: uvicorn app.main:app --reload --app-dir app
-```eof
 
-#이 코드를 통해 팀원이 FAISS 파일을 넘겨주면 `generate_embedding`과 `search_faiss_api` 함수 내부의 Mock 로직만 실제 API 호출로 대체하면 됩니다.
+#FAISS 파일을 넘겨받으면 `generate_embedding`과 `search_faiss_api` 함수 내부의 Mock 로직만 실제 API 호출로 대체하면 됩니다.

@@ -1,0 +1,27 @@
+# k8s/03-services/api-frontend-services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api-service
+spec:
+  selector:
+    app: backend-api
+  type: ClusterIP # Ingress를 통해 외부로 노출되므로 ClusterIP로 충분
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend-nextjs
+  type: NodePort # Ingress Controller가 없거나 테스트용으로 노출
+  ports:
+    - protocol: TCP
+      port: 3000 # Next.js 기본 포트
+      targetPort: 3000
+      nodePort: 30080 # (예시) 30000-32767 범위에서 노출 포트 지정

@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+httpx          
+# 번역 SDK (예시: 실제 사용할 SDK로 대체해야 함)
+# google-cloud-translate

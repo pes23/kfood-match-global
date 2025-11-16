@@ -1,7 +1,7 @@
 #FAISS Pod 통신 클라이언트
 import httpx
 from typing import List, Dict, Any
-# K8s 내부 DNS 이름을 사용합니다.
+# K8s 내부 DNS 이름 사용.
 FAISS_SERVICE_URL = "http://faiss-db-service:8001" 
 # Mock 데이터를 위한 임시 메타데이터
 MOCK_METADATA = [
@@ -15,7 +15,7 @@ async def search_faiss_api(profile_vector: List[float], k: int = 5) -> List[Dict
     """
     print(f"DEBUG: Searching FAISS API at {FAISS_SERVICE_URL} (MOCK)")
     
-    # 🚨 중요한 가정: 팀원이 벡터를 생성할 때 사용할 임베딩 모델의 차원과 일치하는 
+    # 팀원이 벡터를 생성할 때 사용할 임베딩 모델의 차원과 일치하는 
     # Mock 벡터를 생성하거나, 여기서 벡터 생성 단계를 임시로 건너뜁니다.
     
     # Mock 응답: 상위 2개 후보를 메타데이터와 결합하여 반환

@@ -7,7 +7,7 @@ MOCK_REASON_TEMPLATE = "추천 음식 {}는 {}과/와 같은 {} 맛을 가지며
 def generate_food_profile(foreign_food: str) -> str:
     """
     GPT를 호출하여 입력 음식의 특징 분석 텍스트를 생성하는 Mock 함수.
-    실제 구현 시에는 OpenAI/Gemini API를 호출하여 정성적 특징을 생성해야 합니다.
+    실제 구현 시에는 OpenAI/Gemini API를 호출하여 정성적 특징을 생성해야 함.
     """
     print(f"DEBUG: Generating profile for '{foreign_food}' (MOCK)")
     return MOCK_FOOD_PROFILE
@@ -22,9 +22,12 @@ def generate_justification(
     """
     print(f"DEBUG: Generating justification based on {len(candidates)} candidates (MOCK)")
     
-    # Mock 데이터에 추천 이유를 추가하여 반환
+    # Mock 데이터에 추천 이유 추가하여 반환
     results = []
     for item in candidates:
+        if not isinstance(item, dict) or 'name' not in item:
+            print(f"ERROR: Candidate item is not a valid dictionary: {item}")
+            continue
         reason_text = MOCK_REASON_TEMPLATE.format(
             item['name'], 
             foreign_food, 

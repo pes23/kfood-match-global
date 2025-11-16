@@ -1,9 +1,6 @@
 fastapi
 uvicorn
 pydantic
-# AI SDKs
-openai # (OpenAI API를 사용할 경우)
-# httpx는 FAISS 및 Translate Service와 비동기 통신을 위해 사용
+openai
 httpx 
-# 개발용
 python-dotenv

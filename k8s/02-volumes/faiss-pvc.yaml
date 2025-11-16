@@ -1,0 +1,14 @@
+# k8s/02-volumes/faiss-pvc.yaml
+# 만약 pv 사용 못할 경우 이 파일은 무시해도 됩니다.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: faiss-data-pvc
+spec:
+  # ReadWriteOnce: 단일 노드에서만 Read/Write 가능 (VM 환경에서 흔히 사용)
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # FAISS 인덱스 파일을 저장할 공간 요청. 
+      storage: 5Gi

@@ -1,0 +1,13 @@
+# k8s/03-services/translate-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: translate-service # FastAPI가 호출할 내부 DNS 이름
+spec:
+  selector:
+    app: translate-service # 이 Service가 연결될 Pod의 라벨
+  type: ClusterIP # 내부 통신용
+  ports:
+    - protocol: TCP
+      port: 8002 # Service 포트 (FastAPI가 호출할 포트)
+      targetPort: 8002 # 컨테이너 내부 포트
