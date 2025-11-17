@@ -6,3 +6,6 @@ faiss-cpu
 python-dotenv
 openai>=1.0.0
 requests
+pydantic
+google-genai
+httpx
