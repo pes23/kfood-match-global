@@ -4,3 +4,4 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+faiss/data/kfood_metadata.json

@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 from typing import List, Dict, Any
 import asyncio # asyncio.to_thread 사용
+import time
 
 FAISS_SERVICE_URL = "http://faiss-db-service:8001" 
     
@@ -36,17 +37,35 @@ async def search_faiss_api(profile_vector: List[float], k: int = 5) -> List[Dict
         print(f"FATAL ERROR: FAISS response processing failed: {e}")
         raise e
 
-def generate_embedding(client: genai.Client, profile_text: str) -> List[float]:
+MAX_RETRIES = 3
+INITIAL_DELAY = 2
+
+def generate_embedding_sync(client: genai.Client, profile_text: str) -> List[float]:
     """
     Gemini Embedding API를 호출하여 프로파일 텍스트를 벡터로 변환.
     """
     if client is None:
         raise Exception("Gemini client not initialized for embedding.")
 
-    response = client.models.embed_content(
-    model="text-embedding-004",
-    contents=[types.Content(
-                parts=[types.Part(text=profile_text)]
-            )]
-    ) 
-    return response.embeddings[0].values
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.models.embed_content(
+                model="text-embedding-004",
+                contents=[types.Content(
+                    parts=[types.Part(text=profile_text)]
+                )]
+            ) 
+            return response.embeddings[0].values
+        except Exception as e:
+            if attempt < MAX_RETRIES - 1:
+                delay = INITIAL_DELAY * (attempt + 1)
+                print(f"WARNING: Gemini embedding generation failed (Attempt {attempt + 1}/{MAX_RETRIES}). Retrying in {delay}s. Error: {e}")
+                time.sleep(delay)
+            else:
+                print(f"FATAL ERROR: Gemini embedding generation failed after {MAX_RETRIES} attempts. Last Error: {e}")
+                raise e
+
+    raise Exception("Failed to generate embedding after retries.")
+
+async def generate_embedding(client: genai.Client, profile_text: str) -> List[float]:
+    return await asyncio.to_thread(generate_embedding_sync, client, profile_text)
