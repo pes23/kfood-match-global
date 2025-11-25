@@ -1,4 +1,3 @@
-# faiss-db/app/faiss_utils.py
 # -*- coding: utf-8 -*-
 from fastapi import FastAPI, HTTPException
 from typing import List, Dict, Any, Optional
@@ -7,106 +6,140 @@ import numpy as np
 import faiss
 import json
 import os
-from contextlib import suppress
+import logging
 
-# FastAPI 인스턴스 초기화
+# 1. 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("faiss-service")
+
 app = FastAPI(title="FAISS DB Vector Search API", version="1.0")
 
-# K8s 환경 변수 설정
-# PV/PVC 사용 시: /mnt/data/ (외부 마운트 경로)
-# PV/PVC 미사용 시: /faiss/data/ (이미지 내장 경로), K8s Deployment YAML 파일에서 환경 변수와 볼륨 설정을 통해 두 가지 상황에 유연하게 대응
-FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "/faiss/data/kfood_faiss.index")
-METADATA_PATH = os.getenv("METADATA_PATH", "/faiss/data/kfood_metadata.json")
+# 2. 환경 변수 설정
+# 팀원이 제공한 벡터 차원(1024)으로 기본값 변경
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024")) 
 
-# 전역 변수로 인덱스와 메타데이터를 저장
+FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "/app/data/kfood_faiss.index")
+METADATA_PATH = os.getenv("METADATA_PATH", "/app/data/kfood_metadata.json")
+
+# 전역 변수
 FAISS_INDEX: Optional[faiss.Index] = None
 METADATA_MAP: Dict[int, Dict[str, Any]] = {}
-
 
 class VectorSearchRequest(BaseModel):
     query_vector: List[float]
     k: int = 5
 
+# 3. [중요] 팀원 데이터 스펙에 맞춘 응답 모델 정의
 class CandidateItem(BaseModel):
+    faiss_index: int
     id: int
-    name: str
+    name_ko: str
+    name_en: str
+    category: str
     spicy_level: int
-    main_ingredients: str
-    image_url: str 
+    image_url: str
+    ingredients: List[str]  # 문자열 배열 ["쌀", "설탕"]
+    description: str
+    
+    # 번역 서비스에서 채워넣을 필드 (DB에는 없지만 응답에는 필요)
+    reason: Optional[str] = "" 
 
-def create_mock_index(d: int = 1024, nb: int = 800):
-    """실제 파일 로드 실패 시 메모리 내에 더미 인덱스를 생성합니다."""
+def create_mock_index(d: int, nb: int = 100):
+    """실제 파일 로드 실패 시 사용할 Mock 데이터 생성 (새 스펙 반영)"""
     global FAISS_INDEX, METADATA_MAP
     
-    # 더미 FAISS Index 생성 (데이터 스펙 800개 x 1024차원 사용)
+    logger.info(f"Creating MOCK Index with dim={d}, count={nb} (Schema Updated)")
+    
     xb = np.random.random((nb, d)).astype('float32')
     FAISS_INDEX = faiss.IndexFlatL2(d)
     FAISS_INDEX.add(xb)
     
-    # 더미 Metadata 생성
+    METADATA_MAP.clear()
     for i in range(FAISS_INDEX.ntotal):
         METADATA_MAP[i] = {
-            "id": i,
-            "name": f"한식후보_{i}",
+            "faiss_index": i,
+            "id": 1000 + i,
+            "name_ko": f"모의 음식_{i}",
+            "name_en": f"Mock Food {i}",
+            "category": "Mock Category",
             "spicy_level": i % 5,
-            "main_ingredients": f"재료_{i}",
-            "image_url": "https://placehold.co/150x150/000000/white?text=MOCK"
+            "image_url": "https://via.placeholder.com/300?text=Mock+Food",
+            "ingredients": ["Mock Ingredient 1", "Mock Ingredient 2"],
+            "description": "This is a mock description because the actual data file was not loaded.",
+            "reason": ""
         }
-    print(f"INFO: Generated MOCK FAISS Index with {nb} vectors.")
+    logger.info("MOCK FAISS Index and Metadata generated successfully.")
 
 def load_faiss_data():
     global FAISS_INDEX, METADATA_MAP
 
-    data_loaded_successfully = False
-    with suppress(Exception):
-        # 인덱스 로드
+    try:
+        if not os.path.exists(FAISS_INDEX_PATH) or not os.path.exists(METADATA_PATH):
+            raise FileNotFoundError("Index or Metadata file not found.")
+
+        logger.info(f"Loading FAISS index from {FAISS_INDEX_PATH}...")
         FAISS_INDEX = faiss.read_index(FAISS_INDEX_PATH)
         
-        # 메타데이터 로드
+        logger.info(f"Loading Metadata from {METADATA_PATH}...")
         with open(METADATA_PATH, 'r', encoding='utf-8') as f:
             raw_metadata = json.load(f)
-            # 메타데이터를 ID를 키로 하는 맵으로 변환
-            METADATA_MAP = {item['id']: item for item in raw_metadata}
+            
+            # 4. [중요] JSON의 'faiss_index' 필드를 Key로 사용하여 매핑
+            # FAISS 검색 결과(Index ID) -> JSON의 faiss_index
+            METADATA_MAP = {item['faiss_index']: item for item in raw_metadata}
         
-        print(f"INFO: Successfully loaded actual FAISS data. Total vectors: {FAISS_INDEX.ntotal}")
-        data_loaded_successfully = True
+        logger.info(f"Successfully loaded actual FAISS data. Total vectors: {FAISS_INDEX.ntotal}")
+        
+        # 차원 검증
+        if FAISS_INDEX.d != EMBEDDING_DIM:
+            logger.warning(f"Dimension mismatch! Index: {FAISS_INDEX.d}, Config: {EMBEDDING_DIM}")
 
-    if not data_loaded_successfully:
-        # 로드 실패 시 Mock 인덱스 생성 
-        print("WARNING: Failed to load actual FAISS data. Creating MOCK Index for testing.")
-        # 팀원의 스펙(1024차원)을 사용하여 Mock 인덱스 생성
-        create_mock_index(d=1024, nb=300)
+    except Exception as e:
+        logger.warning(f"Failed to load actual FAISS data: {e}")
+        logger.warning("Switching to MOCK mode for testing.")
+        create_mock_index(d=EMBEDDING_DIM)
 
-
-# 서버 시작 시 데이터 로드 함수 실행
 @app.on_event("startup")
 async def startup_event():
     load_faiss_data()
 
+@app.get("/health")
+def health_check():
+    if FAISS_INDEX is None:
+        raise HTTPException(status_code=503, detail="Not ready")
+    return {"status": "ok", "mode": "mock" if "Mock" in METADATA_MAP.get(0, {}).get('name_en', '') else "real"}
 
 @app.post("/search", response_model=List[CandidateItem])
 async def search_vectors(request: VectorSearchRequest):
-    """
-    입력 벡터를 받아 FAISS 인덱스에서 가장 유사한 K개의 벡터를 검색합니다.
-    """
-    if FAISS_INDEX is None or not METADATA_MAP:
-        raise HTTPException(status_code=503, detail="FAISS Index is not loaded or mocked.")
+    if FAISS_INDEX is None:
+        raise HTTPException(status_code=503, detail="FAISS Index is not ready.")
 
     try:
-        # NumPy 배열로 변환 및 형태 조정
+        # 입력 차원 검증 (1024 차원인지 확인)
+        input_dim = len(request.query_vector)
+        if input_dim != FAISS_INDEX.d:
+             raise ValueError(f"Dimension mismatch: Input {input_dim} vs Index {FAISS_INDEX.d}")
+
         query_vector = np.array(request.query_vector).astype('float32').reshape(1, -1)
-        k = min(request.k, FAISS_INDEX.ntotal) # k가 전체 벡터 수를 넘지 않도록 제한
+        k = min(request.k, FAISS_INDEX.ntotal)
         
-        # 1. FAISS 검색 실행 (D: 거리, I: 인덱스 ID)
+        if k == 0:
+            return []
+
         D, I = FAISS_INDEX.search(query_vector, k)
         
         results = []
         for index_id in I[0]:
-            if index_id >= 0 and index_id in METADATA_MAP:
-                # 2. 메타데이터와 결합하여 반환
-                results.append(CandidateItem(**METADATA_MAP[index_id]))
+            if index_id != -1 and int(index_id) in METADATA_MAP:
+                item_data = METADATA_MAP[int(index_id)]
+                # Pydantic 모델이 자동으로 검증 및 변환 수행
+                results.append(CandidateItem(**item_data))
                 
         return results
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Vector search failed: {e}")
+        logger.error(f"Vector search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

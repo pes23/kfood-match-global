@@ -5,9 +5,10 @@ from google.genai import types
 from typing import List, Dict, Any
 import asyncio # asyncio.to_thread 사용
 import time
+import os
 
-FAISS_SERVICE_URL = "http://faiss-db-service:8001" 
-    
+#FAISS_SERVICE_URL = "http://faiss-db-service:8001" 
+FAISS_SERVICE_URL = os.getenv("FAISS_SERVICE_URL", "http://faiss-service:8000")   
 async def search_faiss_api(profile_vector: List[float], k: int = 5) -> List[Dict[str, Any]]:
     """
     FAISS DB Pod의 /search 엔드포인트에 벡터 검색을 요청하고 응답을 받습니다.

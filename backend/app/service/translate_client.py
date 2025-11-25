@@ -1,9 +1,10 @@
 # backend/app/service/translate_client.py
 import httpx
 from typing import List, Dict, Any
+import os
 
 # K8s 내부 DNS 이름을 사용.
-TRANSLATE_SERVICE_URL = "http://translate-service:8002"
+TRANSLATE_SERVICE_URL = os.getenv("TRANSLATE_SERVICE_URL", "http://translate-service:8000")
 #TRANSLATE_SERVICE_URL = "http://localhost:8002" #테스트용
 
 # 1. 입력 언어 감지 및 표준 언어 변환 (Mock)

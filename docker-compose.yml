@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------
+  # 1. Backend Service (Gateway & Logic)
+  # Host Port: 8000
+  # ---------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kfood-backend
+    ports:
+      - "8000:8000"  # Host:Container
+    volumes:
+      - ./backend/app:/app/app  # 실시간 코드 수정 반영
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}  # .env 파일에서 가져옴
+      # Docker 내부 통신용 주소 (서비스이름:내부포트)
+      - FAISS_SERVICE_URL=http://faiss-service:8000
+      - TRANSLATE_SERVICE_URL=http://translate-service:8000
+    depends_on:
+      - faiss-service
+      - translate-service
+    networks:
+      - kfood-network
+
+  # ---------------------------------------
+  # 2. FAISS DB Service (Vector Search)
+  # Host Port: 8001
+  # ---------------------------------------
+  faiss-service:
+    build:
+      context: ./faiss
+      dockerfile: Dockerfile
+    container_name: kfood-faiss
+    ports:
+      - "8001:8000"  # 외부 8001 접속 -> 내부 8000 연결
+    volumes:
+      - ./faiss/app:/app/app
+      - ./faiss/data:/app/data  # 인덱스 파일 영구 저장
+    environment:
+      - DATA_PATH=/app/data/kfood_faiss_index.bin
+    networks:
+      - kfood-network
+
+  # ---------------------------------------
+  # 3. Translate Service (Mock/Real)
+  # Host Port: 8002
+  # ---------------------------------------
+  translate-service:
+    build:
+      context: ./translate-service
+      dockerfile: Dockerfile
+    container_name: kfood-translate
+    ports:
+      - "8002:8000"  # 외부 8002 접속 -> 내부 8000 연결
+    volumes:
+      - ./translate-service/app:/app/app
+    environment:
+      - USE_MOCK=true
+    networks:
+      - kfood-network
+
+# ---------------------------------------
+# Network Definition
+# ---------------------------------------
+networks:
+  kfood-network:
+    driver: bridge
