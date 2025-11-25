@@ -33,14 +33,12 @@ def generate_food_profile(client: genai.Client, standard_food_input: str) -> str
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
                 delay = INITIAL_DELAY * (attempt + 1)
-                # [수정] print -> logger.warning
                 logger.warning(f"Gemini food profile generation failed (Attempt {attempt + 1}/{MAX_RETRIES}). Retrying in {delay}s. Error: {e}")
                 time.sleep(delay)
             else:
-                # [수정] print -> logger.error
                 logger.error(f"FATAL ERROR: Gemini food profile generation failed after {MAX_RETRIES} attempts. Last Error: {e}")
                 raise e
-    
+            
     raise Exception("Failed to generate food profile after retries.")
 
 def generate_justification_sync(
@@ -49,54 +47,62 @@ def generate_justification_sync(
     candidates: List[Dict[str, Any]], 
     standard_food_input: str
 ) -> List[Dict[str, Any]]:
-    """추천 이유 생성"""
-    if client is None:
+    """추천 이유 생성 (각 후보별 개별 생성으로 수정)"""
+    if client is None or not candidates:
         return candidates
     
-    # KeyError 방지 로직
-    candidate_list_text = "\n".join(
-        [f"- {item.get('name_en', item.get('name_ko', 'Unknown Food'))}: Spicy={item.get('spicy_level', 0)}, Ingredients={item.get('main_ingredients', '')}" for item in candidates]
-    )
-
-    prompt = (
-        f"Using the input food '{standard_food_input}' profile below:\n[Profile: {input_profile}]\n"
-        f"Select the 2 most similar Korean food candidates and explain the similarities (taste, texture) "
-        f"in English, concisely (max 100 words). The output must only be the explanation text."
-        f"\n[Korean Candidates]:\n{candidate_list_text}"
-    )
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=[prompt],
-                config=types.GenerateContentConfig(temperature=0.5)
-            )
-            
-            full_reason_text = response.text
-            
-            results = []
-            for item in candidates:
-                item['reason'] = full_reason_text 
-                # 빈 값 처리 로직
-                if item.get('spicy_level') is None or item.get('spicy_level') == "":
-                     item['spicy_level'] = 0
-                if item.get('image_url') is None or item.get('image_url') == "":
-                     item['image_url'] = "https://via.placeholder.com/300?text=K-Food"
+    results = []
+    
+    for candidate in candidates:
+        food_name = candidate.get('name_en', candidate.get('name_ko', 'Unknown Food'))
         
-                results.append(item)
-            
-            return results
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                delay = INITIAL_DELAY * (attempt + 1)
-                logger.warning(f"Gemini justification generation failed (Attempt {attempt + 1}/{MAX_RETRIES}). Retrying in {delay}s. Error: {e}")
-                time.sleep(delay)
-            else:
-                logger.error(f"FATAL ERROR: Gemini justification generation failed after {MAX_RETRIES} attempts. Last Error: {e}")
-                raise e
+        # 1. 현재 후보 음식에 대한 정보로 프롬프트 구성
+        candidate_info = (
+            f"- {food_name}: Spicy={candidate.get('spicy_level', 0)}, "
+            f"Ingredients={candidate.get('main_ingredients', '')}"
+        )
+        
+        prompt = (
+            f"Analyze the culinary connection between the input food '{standard_food_input}' "
+            f"(Profile: {input_profile}) and the recommended Korean food '{food_name}'.\n"
+            f"Explain the common gastronomic reasons (e.g., shared taste, texture, or ingredients) "
+            f"why '{food_name}' is recommended as a pair for '{standard_food_input}'. "
+            f"Write a concise explanation in English (max 60 words). The output must only be the explanation text."
+            f"\n[Recommended Korean Food Details]:\n{candidate_info}"
+        )
 
-    raise Exception("Failed to generate justification after retries.")
+        # 2. 각 후보에 대해 Gemini 호출 및 재시도 로직 적용
+        reason_text = ""
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=[prompt],
+                    config=types.GenerateContentConfig(temperature=0.5)
+                )
+                reason_text = response.text
+                break # 성공 시 루프 탈출
+            except Exception as e:
+                if attempt < MAX_RETRIES - 1:
+                    delay = INITIAL_DELAY * (attempt + 1)
+                    logger.warning(f"Gemini justification generation failed for {food_name} (Attempt {attempt + 1}/{MAX_RETRIES}). Retrying in {delay}s. Error: {e}")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"FATAL ERROR: Gemini justification generation failed for {food_name} after {MAX_RETRIES} attempts. Last Error: {e}")
+                    reason_text = f"Failed to generate reason for {food_name}."
+                    break # 최종 실패 시 루프 탈출 후 기본 메시지 사용
+        
+        # 3. 결과 업데이트 및 빈 값 처리
+        candidate['reason'] = reason_text
+        
+        if candidate.get('spicy_level') is None or candidate.get('spicy_level') == "":
+            candidate['spicy_level'] = 0
+        if candidate.get('image_url') is None or candidate.get('image_url') == "":
+            candidate['image_url'] = "https://via.placeholder.com/300?text=K-Food"
+            
+        results.append(candidate)
+            
+    return results
 
 async def generate_justification(
     client: genai.Client,
@@ -130,7 +136,7 @@ async def generate_embedding(client: genai.Client, text: str) -> List[float]:
                 else:
                     logger.error(f"Gemini embedding failed: {e}")
                     raise e
-    
+            
     try:
         embedding = await asyncio.to_thread(_get_embedding_sync)
         

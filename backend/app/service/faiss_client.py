@@ -9,7 +9,7 @@ import os
 
 #FAISS_SERVICE_URL = "http://faiss-db-service:8001" 
 FAISS_SERVICE_URL = os.getenv("FAISS_SERVICE_URL", "http://faiss-service:8000")   
-async def search_faiss_api(profile_vector: List[float], k: int = 5) -> List[Dict[str, Any]]:
+async def search_faiss_api(profile_vector: List[float], k: int = 2) -> List[Dict[str, Any]]:
     """
     FAISS DB Pod의 /search 엔드포인트에 벡터 검색을 요청하고 응답을 받습니다.
     """
@@ -41,32 +41,3 @@ async def search_faiss_api(profile_vector: List[float], k: int = 5) -> List[Dict
 MAX_RETRIES = 3
 INITIAL_DELAY = 2
 
-def generate_embedding_sync(client: genai.Client, profile_text: str) -> List[float]:
-    """
-    Gemini Embedding API를 호출하여 프로파일 텍스트를 벡터로 변환.
-    """
-    if client is None:
-        raise Exception("Gemini client not initialized for embedding.")
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = client.models.embed_content(
-                model="text-embedding-004",
-                contents=[types.Content(
-                    parts=[types.Part(text=profile_text)]
-                )]
-            ) 
-            return response.embeddings[0].values
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                delay = INITIAL_DELAY * (attempt + 1)
-                print(f"WARNING: Gemini embedding generation failed (Attempt {attempt + 1}/{MAX_RETRIES}). Retrying in {delay}s. Error: {e}")
-                time.sleep(delay)
-            else:
-                print(f"FATAL ERROR: Gemini embedding generation failed after {MAX_RETRIES} attempts. Last Error: {e}")
-                raise e
-
-    raise Exception("Failed to generate embedding after retries.")
-
-async def generate_embedding(client: genai.Client, profile_text: str) -> List[float]:
-    return await asyncio.to_thread(generate_embedding_sync, client, profile_text)

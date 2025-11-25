@@ -1,46 +1,98 @@
-# translate-service/app/translate_app.py
-# -*- coding: utf-8 -*-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from google import genai
+import os
+import logging
+import uvicorn
 
-# FastAPI 인스턴스 초기화
-app = FastAPI(title="Translate Service API", version="1.0")
+# 1. 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("translate-service")
 
-# Pydantic 모델 정의
+app = FastAPI(title="K-Food Translate Service (Gemini)")
+
+# 2. Gemini 클라이언트 설정
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+client = None
+
+if GEMINI_API_KEY:
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        logger.info("Gemini Client for Translation initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini Client: {e}")
+else:
+    logger.warning("GEMINI_API_KEY not found. Falling back to Mock mode.")
+
 class TranslationRequest(BaseModel):
-    """번역 요청을 위한 입력 데이터"""
-    text: str              
-    target_lang: str = "en" 
+    text: str
+    source_lang: str = "auto"
+    target_lang: str = "ko"   # 기본값 한국어
 
 class TranslationResponse(BaseModel):
-    """번역 결과 응답"""
+    original_text: str
     translated_text: str
+    source_lang: str
+    target_lang: str
+    service_mode: str
 
-# 번역 로직 (Mock 구현)
-def mock_translate(text: str, target_lang: str) -> str:
-    """
-    Mock 번역 로직: 실제 API 호출 없이 더미 결과를 반환.
-    """
-    if target_lang == "en":
-        return f"[EN Translation Mock] The reason is that the texture is chewy."
-    elif target_lang == "es":
-        return f"[Traducción Simulación] La razón es que la textura es masticable."
-    else:
-        # 최종 번역 결과 텍스트를 그대로 반환한다고 가정
-        return f"[Translation Mock ({target_lang})] Reason for: {text}"
-
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.post("/translate", response_model=TranslationResponse)
 async def translate_text_endpoint(request: TranslationRequest):
     """
-    텍스트를 받아 지정된 언어로 번역 결과를 반환하는 엔드포인트.
+    Gemini를 이용한 실제 번역 API 엔드포인트
     """
+    logger.info(f"Translation Request: '{request.text}' -> {request.target_lang}")
+    
+    # 1. Mock 모드 (API 키 없을 때)
+    if not client:
+        return TranslationResponse(
+            original_text=request.text,
+            translated_text=f"[Mock/{request.target_lang}] {request.text}",
+            source_lang=request.source_lang,
+            target_lang=request.target_lang,
+            service_mode="mock"
+        )
+
+    # 2. 실제 Gemini 번역 요청
     try:
-        translated = mock_translate(request.text, request.target_lang)
+        # 번역 전용 프롬프트
+        prompt = (
+            f"You are a professional translator. Translate the following text into {request.target_lang} language code. "
+            f"Only output the translated text, nothing else.\n\nText: {request.text}"
+        )
         
-        return TranslationResponse(translated_text=translated)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt]
+        )
+        
+        translated_text = response.text.strip()
+        
+        return TranslationResponse(
+            original_text=request.text,
+            translated_text=translated_text,
+            source_lang=request.source_lang,
+            target_lang=request.target_lang,
+            service_mode="gemini-real"
+        )
 
     except Exception as e:
-        # K8s 내부 서비스 문제 발생 시 500 에러 반환
-        raise HTTPException(status_code=500, detail=f"Translation failure: {e}")
+        logger.error(f"Gemini translation failed: {e}")
+        # 에러 발생 시 원본 반환 (서비스 중단 방지)
+        return TranslationResponse(
+            original_text=request.text,
+            translated_text=request.text,
+            source_lang=request.source_lang,
+            target_lang=request.target_lang,
+            service_mode="error-fallback"
+        )
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
