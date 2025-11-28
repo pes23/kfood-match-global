@@ -25,7 +25,7 @@ async def translate_text(text: str, target_lang: str) -> str:
     """
     Translate Service Pod에 단일 텍스트 번역을 요청.
     """
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{TRANSLATE_SERVICE_URL}/translate",
             json={"text": text, "target_lang": target_lang}

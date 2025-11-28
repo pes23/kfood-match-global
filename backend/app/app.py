@@ -9,11 +9,8 @@ import asyncio
 import os
 import logging
 
-# [수정 1] generate_embedding을 ai_service에서 임포트
 from app.service.ai_service import generate_food_profile, generate_justification, generate_embedding
-# [수정 2] faiss_client에서는 search_faiss_api만 임포트
 from app.service.faiss_client import search_faiss_api
-# [수정 3] translate_results_async 추가 임포트
 from app.service.translate_client import translate_text, detect_and_translate_input, translate_results_async
 
 # 로깅 설정
@@ -82,11 +79,10 @@ async def recommend_kfood(
         logger.info("Food profile generated.")
 
         # 2. Gemini Embedding 벡터 생성 (Async 함수이므로 직접 await)
-        # [수정] ai_service의 generate_embedding 사용
         profile_vector = await generate_embedding(GEMINI_SYNC_CLIENT, food_profile)
         
         # 3. FAISS 검색 
-        candidate_items: List[Dict[str, Any]] = await search_faiss_api(profile_vector, k=5)
+        candidate_items: List[Dict[str, Any]] = await search_faiss_api(profile_vector, k=2)
         
         if not candidate_items:
             logger.warning("No candidates found from FAISS.")
@@ -98,13 +94,11 @@ async def recommend_kfood(
         )
         
         # 5. 최종 번역 (개인화 - Async 함수)
-        # 입력했던 언어(source_lang)로 결과의 reason을 번역해줍니다.
         translated_items_dicts = await translate_results_async(justified_items_dicts, target_lang=source_lang)
         
         # 6. Dict -> Pydantic Model 변환
         final_items = []
         for item in translated_items_dicts:
-            # DB의 ingredients는 리스트(["쌀", "파"])일 수 있으므로 문자열로 변환
             ingredients_str = item.get('main_ingredients', '')
             if isinstance(item.get('ingredients'), list):
                  ingredients_str = ", ".join(item['ingredients'])

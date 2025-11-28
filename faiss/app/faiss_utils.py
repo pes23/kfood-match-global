@@ -18,7 +18,6 @@ logger = logging.getLogger("faiss-service")
 app = FastAPI(title="FAISS DB Vector Search API", version="1.0")
 
 # 2. 환경 변수 설정
-# 팀원이 제공한 벡터 차원(1024)으로 기본값 변경
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024")) 
 
 FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "/app/data/kfood_faiss.index")
@@ -32,7 +31,6 @@ class VectorSearchRequest(BaseModel):
     query_vector: List[float]
     k: int = 5
 
-# 3. [중요] 팀원 데이터 스펙에 맞춘 응답 모델 정의
 class CandidateItem(BaseModel):
     faiss_index: int
     id: int
@@ -44,7 +42,6 @@ class CandidateItem(BaseModel):
     ingredients: List[str]  # 문자열 배열 ["쌀", "설탕"]
     description: str
     
-    # 번역 서비스에서 채워넣을 필드 (DB에는 없지만 응답에는 필요)
     reason: Optional[str] = "" 
 
 def create_mock_index(d: int, nb: int = 100):
@@ -87,7 +84,6 @@ def load_faiss_data():
         with open(METADATA_PATH, 'r', encoding='utf-8') as f:
             raw_metadata = json.load(f)
             
-            # 4. [중요] JSON의 'faiss_index' 필드를 Key로 사용하여 매핑
             # FAISS 검색 결과(Index ID) -> JSON의 faiss_index
             METADATA_MAP = {item['faiss_index']: item for item in raw_metadata}
         
