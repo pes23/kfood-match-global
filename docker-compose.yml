@@ -64,7 +64,7 @@ services:
     ports:
       - "3000:80" # 로컬 3000번 포트로 접근 시, 컨테이너의 80번 포트로 연결
     depends_on:
-      - kfood-backend # 프론트엔드는 백엔드가 준비된 후 실행되는 것이 일반적
+      - backend # 프론트엔드는 백엔드가 준비된 후 실행되는 것이 일반적
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     restart: "on-failure"
