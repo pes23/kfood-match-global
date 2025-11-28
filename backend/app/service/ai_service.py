@@ -9,7 +9,7 @@ import numpy as np
 
 # 로거 설정
 logger = logging.getLogger(__name__)
-
+EMBEDDING_DIM = 768
 GEMINI_MODEL = "gemini-2.5-flash"
 EMBEDDING_MODEL = "text-embedding-004" 
 MAX_RETRIES = 3
@@ -116,10 +116,10 @@ async def generate_justification(
     
 async def generate_embedding(client: genai.Client, text: str) -> List[float]:
     """
-    Gemini 임베딩(768차원) 생성 후 1024차원으로 패딩(Padding).
+    Gemini 임베딩(768차원) 생성 및 반환.
     """
     if not text:
-        return []
+        return [0.0] * EMBEDDING_DIM
 
     # 동기 함수를 비동기로 래핑
     def _get_embedding_sync():
@@ -139,21 +139,20 @@ async def generate_embedding(client: genai.Client, text: str) -> List[float]:
             
     try:
         embedding = await asyncio.to_thread(_get_embedding_sync)
-        
-        # [중요] 1024차원 보정 로직 (Zero Padding)
         current_dim = len(embedding)
-        target_dim = 1024
         
-        if current_dim < target_dim:
-            padding = [0.0] * (target_dim - current_dim)
-            embedding.extend(padding)
-            logger.info(f"Embedding padded from {current_dim} to {target_dim} dimensions.")
-        elif current_dim > target_dim:
-            embedding = embedding[:target_dim]
+        #if current_dim < target_dim:
+        #    padding = [0.0] * (target_dim - current_dim)
+        #    embedding.extend(padding)
+        #    logger.info(f"Embedding padded from {current_dim} to {target_dim} dimensions.")
+        #elif current_dim > target_dim:
+        #    embedding = embedding[:target_dim]
+        if current_dim != EMBEDDING_DIM:
+            logger.warning(f"Received embedding dimension {current_dim} != expected {EMBEDDING_DIM}. Truncating/Adjusting.")
             
         return embedding
 
     except Exception as e:
         logger.error(f"Failed to generate embedding: {e}")
         # 에러 시 0 벡터 반환 (서버 다운 방지)
-        return [0.0] * 1024
+        return [0.0] * EMBEDDING_DIM
