@@ -3,8 +3,10 @@ import json
 import numpy as np
 import pandas as pd
 import faiss
+from google import genai
+from dotenv import load_dotenv
 
-from sentence_transformers import SentenceTransformer
+load_dotenv()
 
 DATA_DIR = os.path.join("faiss", "data")
 
@@ -14,14 +16,13 @@ FAISS_INDEX_PATH = os.path.join(DATA_DIR, "kfood_faiss.index")
 METADATA_JSON_PATH = os.path.join(DATA_DIR, "kfood_metadata.json")
 
 BATCH_SIZE = 64
+MODEL_NAME = "models/text-embedding-004"
 
-# 🔥 무료 멀티링구얼 모델 (bge-m3)
-MODEL_NAME = "BAAI/bge-m3"
+# Gemini Client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 def build_combined_text(row: pd.Series) -> str:
-    """
-    각 음식에 대해 임베딩에 사용할 텍스트 구성
-    """
     name_ko = row.get("name_ko", "")
     name_en = row.get("name_en", "")
     description = row.get("description", "")
@@ -40,28 +41,35 @@ def build_combined_text(row: pd.Series) -> str:
     return text
 
 
-def create_embeddings(texts, model):
+def create_embeddings(texts):
     """
-    SentenceTransformer로 로컬 CPU 임베딩
+    Gemini 최신 SDK 기준 batch_embed_contents 사용
     """
-    print("🧠 Encoding with BGE model...")
-    embeddings = model.encode(
-        texts,
-        batch_size=BATCH_SIZE,
-        convert_to_numpy=True,
-        show_progress_bar=True
-    )
+    all_embeddings = []
+
+    print("✨ Creating embeddings with Gemini...")
+
+    for i in range(0, len(texts), BATCH_SIZE):
+        batch = texts[i : i + BATCH_SIZE]
+        print(f" - Batch {i // BATCH_SIZE + 1}/{(len(texts)-1)//BATCH_SIZE + 1}")
+
+        res = client.models.batch_embed_content(
+            model=MODEL_NAME,
+            requests=[{"content": t} for t in batch]
+        )
+
+        for emb in res.embeddings:
+            all_embeddings.append(np.array(emb.values, dtype="float32"))
+
+    embeddings = np.vstack(all_embeddings)
     print("📏 Embeddings shape:", embeddings.shape)
-    return embeddings.astype("float32")
+
+    return embeddings
 
 
 def build_faiss_index(embeddings: np.ndarray):
-    """
-    Inner Product 기반 FAISS Index 생성 (코사인 유사도)
-    """
     d = embeddings.shape[1]
-
-    faiss.normalize_L2(embeddings)  # 코사인 유사도용 정규화
+    faiss.normalize_L2(embeddings)
 
     index = faiss.IndexFlatIP(d)
     index.add(embeddings)
@@ -71,9 +79,6 @@ def build_faiss_index(embeddings: np.ndarray):
 
 
 def build_metadata(df: pd.DataFrame):
-    """
-    FastAPI에서 조회할 메타데이터 JSON 생성
-    """
     records = []
 
     for idx, row in df.iterrows():
@@ -90,6 +95,7 @@ def build_metadata(df: pd.DataFrame):
                 "description": row.get("description", ""),
             }
         )
+
     with open(METADATA_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
 
@@ -100,16 +106,13 @@ def main():
     print(f"📥 Loading CSV: {CSV_PATH}")
     df = pd.read_csv(CSV_PATH)
 
-    print("🧩 Building combined_text for each row...")
+    print("🧩 Building combined_text...")
     df["combined_text"] = df.apply(build_combined_text, axis=1)
 
     texts = df["combined_text"].tolist()
 
-    print("🚀 Loading model:", MODEL_NAME)
-    model = SentenceTransformer(MODEL_NAME)
-
     print("✨ Creating embeddings...")
-    embeddings = create_embeddings(texts, model)
+    embeddings = create_embeddings(texts)
     np.save(EMBEDDING_NPY_PATH, embeddings)
     print(f"💾 Saved embeddings → {EMBEDDING_NPY_PATH}")
 
