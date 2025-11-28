@@ -88,10 +88,18 @@ def build_faiss_index(embeddings: np.ndarray):
     print(f"💾 Saved FAISS index → {FAISS_INDEX_PATH}")
 
 
+import json
+
 def build_metadata(df: pd.DataFrame):
     records = []
 
     for idx, row in df.iterrows():
+        # ingredients 필드를 문자열 → 리스트로 변환
+        try:
+            ingredients = json.loads(row.get("ingredients", "[]"))
+        except:
+            ingredients = []
+
         records.append(
             {
                 "faiss_index": int(idx),
@@ -101,7 +109,7 @@ def build_metadata(df: pd.DataFrame):
                 "category": row.get("category", ""),
                 "spicy_level": row.get("spicy_level", ""),
                 "image_url": row.get("image_url", ""),
-                "ingredients": row.get("ingredients", ""),
+                "ingredients": ingredients,  # 리스트로 저장됨
                 "description": row.get("description", ""),
             }
         )
