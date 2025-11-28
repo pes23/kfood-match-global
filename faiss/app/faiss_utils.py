@@ -18,7 +18,7 @@ logger = logging.getLogger("faiss-service")
 app = FastAPI(title="FAISS DB Vector Search API", version="1.0")
 
 # 2. 환경 변수 설정
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024")) 
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768")) 
 
 FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "/app/data/kfood_faiss.index")
 METADATA_PATH = os.getenv("METADATA_PATH", "/app/data/kfood_metadata.json")

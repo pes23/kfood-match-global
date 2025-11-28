@@ -43,23 +43,33 @@ def build_combined_text(row: pd.Series) -> str:
 
 def create_embeddings(texts):
     """
-    Gemini 최신 SDK 기준 batch_embed_contents 사용
+    Gemini SDK의 단일 embed_content 호출을 사용하여 임베딩 생성
+    (배치 기능이 지원되지 않는 SDK 버전에 대응)
     """
     all_embeddings = []
 
     print("✨ Creating embeddings with Gemini...")
-
-    for i in range(0, len(texts), BATCH_SIZE):
-        batch = texts[i : i + BATCH_SIZE]
-        print(f" - Batch {i // BATCH_SIZE + 1}/{(len(texts)-1)//BATCH_SIZE + 1}")
-
-        res = client.models.batch_embed_content(
-            model=MODEL_NAME,
-            requests=[{"content": t} for t in batch]
-        )
-
-        for emb in res.embeddings:
-            all_embeddings.append(np.array(emb.values, dtype="float32"))
+    
+    # BATCH_SIZE 로직 대신 전체 텍스트 리스트 순회
+    for i, text in enumerate(texts):
+        # 진행 상황 표시 (선택 사항)
+        if i % 10 == 0:
+             print(f" - Embedding item {i + 1}/{len(texts)}")
+        
+        try:
+            # client.models.embed_content 사용
+            res = client.models.embed_content(
+                model=MODEL_NAME,
+                contents=[text]  # 단일 텍스트를 content 파라미터로 전달
+            )
+            actual_embedding_values = res.embeddings[0].values
+            # 임베딩 결과는 res.embedding.values로 접근
+            all_embeddings.append(np.array(actual_embedding_values, dtype="float32"))
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to embed content for item {i}. Error: {e}")
+            # 실패 시 768차원 0 벡터 추가
+            all_embeddings.append(np.zeros(768, dtype="float32")) 
 
     embeddings = np.vstack(all_embeddings)
     print("📏 Embeddings shape:", embeddings.shape)
