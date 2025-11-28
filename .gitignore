@@ -6,3 +6,8 @@ __pycache__/
 *.pyc
 node_modules/
 .next/
+.DS_Store
+
+faiss/data/kfood_faiss.index
+faiss/data/kfood_embeddings.npy
+faiss/data/kfood_metadata.json
