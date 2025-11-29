@@ -2,53 +2,59 @@
 import httpx
 from typing import List, Dict, Any
 import os
+import asyncio
+import logging
 
-# K8s 내부 DNS 이름을 사용.
+logger = logging.getLogger(__name__)
+
+# K8s 내부 DNS 이름을 사용. 환경 변수가 없으면 Docker Compose 기본 포트
 TRANSLATE_SERVICE_URL = os.getenv("TRANSLATE_SERVICE_URL", "http://translate-service:8000")
-#TRANSLATE_SERVICE_URL = "http://localhost:8002" #테스트용
 
-# 1. 입력 언어 감지 및 표준 언어 변환 (Mock)
-async def detect_and_translate_input(foreign_food: str, target_lang: str = "en") -> tuple[str, str]:
-    """
-    사용자 입력 텍스트의 언어를 감지하고 표준 언어(영어)로 번역. (Mock)
-    """
-    # 스페인어/영어 시뮬레이션
-    if "tacos" in foreign_food.lower() or "burrito" in foreign_food.lower():
-        # 스페인어로 가정하고, 번역된 표준어와 원본 언어 코드를 반환
-        return "Tacos", "es" 
-    
-    # 기본값: 영어로 가정
-    return foreign_food, "en" 
 
-# 2. 최종 번역 요청 (실제 httpx 통신)
+# 1. 최종 번역 요청 (실제 httpx 통신)
 async def translate_text(text: str, target_lang: str) -> str:
     """
     Translate Service Pod에 단일 텍스트 번역을 요청.
+    이 함수는 사용자 입력(foreign_food)을 영어로 번역하거나,
+    최종 결과(reason)를 한국어로 번역하는 데 사용됩니다.
     """
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"{TRANSLATE_SERVICE_URL}/translate",
-            json={"text": text, "target_lang": target_lang}
-        )
-        response.raise_for_status() # 4xx, 5xx 에러 발생 시 예외 처리
-        
-        return response.json().get("translated_text", text)
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{TRANSLATE_SERVICE_URL}/translate",
+                json={"text": text, "target_lang": target_lang}
+            )
+            response.raise_for_status() # 4xx, 5xx 에러 발생 시 예외 처리
+            
+            # 응답에서 'translated_text' 키를 찾아 반환
+            return response.json().get("translated_text", text)
+            
+    except httpx.RequestError as e:
+        logger.error(f"Translation Service connection error to {TRANSLATE_SERVICE_URL}: {e}")
+        # 연결 실패 시 원본 텍스트를 그대로 반환 (최악의 경우 fallback)
+        return text 
+    except Exception as e:
+        logger.error(f"Translation Service failed to process response: {e}")
+        return text
+    
 
-
+# 2. 결과 리스트의 'reason' 필드 번역 (비동기 병렬 처리)
 async def translate_results_async(items: List[Dict[str, Any]], target_lang: str) -> List[Dict[str, Any]]:
     """
-    추천 결과 리스트를 받아 'reason' 필드 번역.
+    추천 결과 리스트를 받아 'reason' 필드를 target_lang으로 번역합니다.
+    (현재는 Gemini가 이유를 한국어로 생성하므로, 이 함수는 거의 사용되지 않을 수 있습니다.)
     """
-    translated_items = []
     
-    for item in items:
-        # 'reason' 필드만 번역.
+    async def translate_single_reason(item: Dict[str, Any], target_lang: str) -> Dict[str, Any]:
         reason_text = item.get('reason', '')
         
         # 실제 번역 API 호출
         translated_reason = await translate_text(reason_text, target_lang)
         
         item['reason'] = translated_reason
-        translated_items.append(item)
-        
-    return translated_items
+        return item
+    
+    # 모든 항목에 대해 병렬로 번역 작업을 시작합니다.
+    tasks = [translate_single_reason(item, target_lang) for item in items]
+    
+    return await asyncio.gather(*tasks)

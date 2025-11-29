@@ -11,7 +11,7 @@ import logging
 
 from app.service.ai_service import generate_food_profile, generate_justification, generate_embedding
 from app.service.faiss_client import search_faiss_api
-from app.service.translate_client import translate_text, detect_and_translate_input, translate_results_async
+from app.service.translate_client import translate_text, translate_results_async
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -64,14 +64,20 @@ def health_check():
 async def recommend_kfood(
     foreign_food: str = Query(..., description="사용자가 입력한 외국 음식 이름")
 ):
+    source_lang = "en" 
     if GEMINI_SYNC_CLIENT is None:
         raise HTTPException(status_code=500, detail="Internal Server Error: Gemini Client Not Initialized. Check API Key.")
     
     try:
         # 0. 입력 언어 감지 및 표준 언어(영어) 변환
         logger.info(f"Processing request for: {foreign_food}")
-        standard_input, source_lang = await detect_and_translate_input(foreign_food, target_lang="en")
-        
+        standard_input = await translate_text(foreign_food, target_lang="en")
+        if standard_input == foreign_food:
+             logger.info(f"Input '{foreign_food}' appears to be English or translation failed (Fallback).")
+        else:
+             logger.info(f"Input '{foreign_food}' translated to standard input: '{standard_input}'")
+
+
         # 1. Gemini 음식 특징 생성 (Sync 함수이므로 to_thread 사용)
         food_profile = await asyncio.to_thread(
             generate_food_profile, GEMINI_SYNC_CLIENT, standard_input
