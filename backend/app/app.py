@@ -8,10 +8,11 @@ from google import genai
 import asyncio
 import os
 import logging
+from langdetect import detect, DetectorFactory
 
 from app.service.ai_service import generate_food_profile, generate_justification, generate_embedding
 from app.service.faiss_client import search_faiss_api
-from app.service.translate_client import translate_text, detect_and_translate_input, translate_results_async
+from app.service.translate_client import translate_text, translate_results_async
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -64,36 +65,47 @@ def health_check():
 async def recommend_kfood(
     foreign_food: str = Query(..., description="사용자가 입력한 외국 음식 이름")
 ):
+    
     if GEMINI_SYNC_CLIENT is None:
         raise HTTPException(status_code=500, detail="Internal Server Error: Gemini Client Not Initialized. Check API Key.")
     
     try:
-        # 0. 입력 언어 감지 및 표준 언어(영어) 변환
-        logger.info(f"Processing request for: {foreign_food}")
-        standard_input, source_lang = await detect_and_translate_input(foreign_food, target_lang="en")
-        
-        # 1. Gemini 음식 특징 생성 (Sync 함수이므로 to_thread 사용)
+        #입력 언어 감지
+        DetectorFactory.seed = 0  # langdetect 일관성 보장
+        source_lang = detect(foreign_food)
+        logger.info(f"Detected input language: {source_lang}")
+        #표준 언어(영어) 변환
+        if source_lang != "en":
+            standard_input = await translate_text(foreign_food, target_lang="en")
+            if standard_input == foreign_food:
+                logger.info(f"Translation fallback: input remains '{foreign_food}'")
+        else:
+            standard_input = foreign_food
+
+        logger.info(f"Standard input for Gemini: '{standard_input}'")
+
+        # Gemini 음식 프로필 생성
         food_profile = await asyncio.to_thread(
             generate_food_profile, GEMINI_SYNC_CLIENT, standard_input
         )
         logger.info("Food profile generated.")
 
-        # 2. Gemini Embedding 벡터 생성 (Async 함수이므로 직접 await)
+        # Embedding 벡터 생성
         profile_vector = await generate_embedding(GEMINI_SYNC_CLIENT, food_profile)
         
-        # 3. FAISS 검색 
+        # FAISS 검색 
         candidate_items: List[Dict[str, Any]] = await search_faiss_api(profile_vector, k=2)
         
         if not candidate_items:
             logger.warning("No candidates found from FAISS.")
             return RecommendationResponse(input_food=foreign_food, items=[])
 
-        # 4. Gemini 유사성 설명 생성 (Async 함수)
+        # Gemini 유사성 설명 생성
         justified_items_dicts: List[Dict[str, Any]] = await generate_justification(
             GEMINI_SYNC_CLIENT, food_profile, candidate_items, standard_input
         )
         
-        # 5. 최종 번역 (개인화 - Async 함수)
+        # 이유 번역
         translated_items_dicts = await translate_results_async(justified_items_dicts, target_lang=source_lang)
         
         # 6. Dict -> Pydantic Model 변환
@@ -107,7 +119,7 @@ async def recommend_kfood(
 
             final_items.append(
                 RecommendationItem(
-                    name=item.get('name_en', 'Unknown'), # 혹은 name_ko
+                    name=item.get('name_en', 'Unknown'),
                     spicy_level=int(item.get('spicy_level', 0)),
                     main_ingredients=ingredients_str,
                     reason=item.get('reason', ''),

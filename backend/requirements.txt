@@ -8,4 +8,5 @@ requests
 pydantic
 google-genai
 httpx
+langdetect
 
