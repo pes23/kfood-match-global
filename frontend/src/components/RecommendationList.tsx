@@ -13,6 +13,7 @@ export function RecommendationList({ items }: Props) {
     return (
       <Text textAlign="center" color="gray.600">
         아직 추천 결과가 없습니다.
+        No recommendations yet.
       </Text>
     );
   }

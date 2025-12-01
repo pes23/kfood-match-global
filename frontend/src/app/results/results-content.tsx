@@ -72,11 +72,12 @@ export default function ResultsContent({ searchParams }: Props) {
     <Container maxW="container.lg" py={16}>
       <VStack spacing={10} align="stretch">
         <Box>
-          <Heading size="2xl" mb={2}>
-            추천 결과
+          <Heading size="xl" mb={2}>
+            추천 결과 Recommendation Results
+            <br />
           </Heading>
           <Text color="gray.600">
-            입력한 음식:{" "}
+            입력한 음식 The food you entered :{" "}
             <Text as="span" fontWeight="bold">
               {food || "알 수 없음"}
             </Text>
@@ -84,11 +85,14 @@ export default function ResultsContent({ searchParams }: Props) {
         </Box>
 
         {loading && (
-          <VStack spacing={4} align="center">
-            <Spinner />
-            <Text>AI가 한국 음식을 찾고 있습니다...</Text>
+          <VStack spacing={2} align="center">
+            <Spinner mt={4} />
+
+            <Text mt={4}>AI가 한국 음식을 찾고 있습니다...</Text>
+            <Text>Loading recommendation results...</Text>
           </VStack>
         )}
+
 
         {!loading && error && (
           <VStack spacing={4} align="stretch">
@@ -98,7 +102,7 @@ export default function ResultsContent({ searchParams }: Props) {
             </Alert>
             <HStack justify="center">
               <Button as={Link} href="/" colorScheme="teal">
-                처음으로 돌아가기
+                처음으로 돌아가기 \nGo to Home
               </Button>
             </HStack>
           </VStack>
@@ -110,16 +114,21 @@ export default function ResultsContent({ searchParams }: Props) {
               <VStack spacing={4} align="center">
                 <Text>조건에 맞는 한국 음식을 찾지 못했습니다. 😢</Text>
                 <Button as={Link} href="/" colorScheme="teal">
-                  다른 음식으로 다시 시도하기
+                  다른 음식으로 다시 시도하기 \nGet recommendations again with another food
                 </Button>
               </VStack>
             ) : (
-              <RecommendationList items={items} />
+              <Box mt={6} mb={6}>
+                <RecommendationList items={items} />
+              </Box>
+              
             )}
 
             <HStack justify="center" mt={8}>
-              <Button as={Link} href="/" variant="outline" colorScheme="teal">
-                다른 음식으로 다시 추천받기
+              <Button as={Link} href="/" variant="outline" colorScheme="teal" textAlign="center" py={8} px={8} >
+                다른 음식으로 다시 추천받기 
+                <br />
+                Get recommendations again with another food
               </Button>
             </HStack>
           </>

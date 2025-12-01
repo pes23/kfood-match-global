@@ -67,6 +67,7 @@ services:
       - backend # 프론트엔드는 백엔드가 준비된 후 실행되는 것이 일반적
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: "on-failure"
 
 # Network Definition

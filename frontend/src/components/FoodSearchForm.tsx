@@ -20,7 +20,7 @@ export function FoodSearchForm() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!value.trim()) {
-      setError("좋아하는 외국 음식 이름을 입력해주세요.");
+      setError("좋아하는 외국 음식 이름을 입력해주세요.\n Please enter the name of a foreign food.");
       return;
     }
     setError("");
@@ -41,17 +41,24 @@ export function FoodSearchForm() {
     >
       <VStack spacing={6} align="stretch">
         <Heading size="lg" textAlign="center">
-          어떤 외국 음식을 좋아하시나요?
+          어떤 음식을 좋아하시나요?
+          <br />
+          What kind of food do you like?
         </Heading>
+
         <Text fontSize="sm" color="gray.600" textAlign="center">
-          예: Tacos, 타코스, タコス 등 편한 언어로 입력해 주세요.
+          Tacos, 타코스, タコス 등 편한 언어로 입력해 주세요.
+          <br />
+          Feel free to enter it in any language — Tacos, 타코스, タコス, etc.
         </Text>
 
         <Input
           size="lg"
-          placeholder="예: Tacos / 타코스 / タコス"
+          placeholder="Tacos / 타코스 / タコス"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          mt={3}    
+          mb={3}
         />
 
         {error && (
@@ -61,8 +68,10 @@ export function FoodSearchForm() {
         )}
 
         <HStack justify="center">
-          <Button type="submit" colorScheme="teal" size="lg">
+          <Button type="submit" colorScheme="teal" size="lg" textAlign="center">
             추천 시작
+            <br />
+            Get Recommendations
           </Button>
         </HStack>
       </VStack>

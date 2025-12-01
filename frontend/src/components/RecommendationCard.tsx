@@ -10,18 +10,11 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import type { RecommendationItem } from "@/types/recommendation";
+import ChiliLevel from "@/components/ChiliLevel";
 
 type Props = {
   item: RecommendationItem;
 };
-
-function spicyLabel(level: number) {
-  if (level <= 1) return "안 매움";
-  if (level === 2) return "약간 매움";
-  if (level === 3) return "보통 매움";
-  if (level === 4) return "매움";
-  return "아주 매움";
-}
 
 export function RecommendationCard({ item }: Props) {
   return (
@@ -43,25 +36,34 @@ export function RecommendationCard({ item }: Props) {
         />
       )}
 
-      <Box p={5}>
-        <VStack align="stretch" spacing={3}>
+      <Box p={7}>
+        <VStack align="stretch" spacing={5}>
+          {/* 음식 이름 */}
           <Heading size="md">{item.name}</Heading>
 
-          <HStack spacing={2}>
-            <Badge colorScheme="red">{spicyLabel(item.spicy_level)}</Badge>
-            {item.main_ingredients && (
-              <Badge colorScheme="gray" variant="subtle">
-                주요 재료
-              </Badge>
-            )}
+          {/* 매운 정도 라인 */}
+          <HStack spacing={2} align="center">
+            <Badge colorScheme="red" variant="subtle">
+              매운 정도 Spicy level
+            </Badge>
+
+            <ChiliLevel level={item.spicy_level} />
           </HStack>
 
+          {/* 주요 재료 라인 */}
           {item.main_ingredients && (
-            <Text fontSize="sm" color="gray.700">
-              {item.main_ingredients}
-            </Text>
+            <HStack spacing={2} align="center">
+              <Badge colorScheme="gray" variant="subtle">
+                주요 재료 Main ingredients
+              </Badge>
+
+              <Text fontSize="sm" color="gray.700">
+                {item.main_ingredients}
+              </Text>
+            </HStack>
           )}
 
+          {/* 추천 이유 */}
           <Text fontSize="sm" color="gray.800">
             {item.reason}
           </Text>

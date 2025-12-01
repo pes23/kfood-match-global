@@ -26,6 +26,7 @@ export default function ResultsPageWrapper({ searchParams }: ResultsPageProps) {
           <VStack spacing={6} align="center">
             <Spinner />
             <Text>추천 결과를 불러오는 중입니다...</Text>
+            <Text>Loading recommendation results...</Text>
           </VStack>
         </Container>
       }
