@@ -9,9 +9,14 @@ export default function HomePage() {
           <Heading size="2xl" mb={4}>
             K-Food Match
           </Heading>
-          <Text fontSize="md" color="gray.600">
-            좋아하는 외국 음식과 가장 비슷한 한국 음식을 AI가 찾아드립니다.
+          <Text fontSize="l" color="gray.600">
+            <br />
+            좋아하는 외국 음식과 가장 비슷한 한국 음식을 찾아드립니다.
+            <br />
+            Find Korean dishes similar to your favorite foods.
+            <br />
           </Text>
+
         </Box>
 
         <FoodSearchForm />

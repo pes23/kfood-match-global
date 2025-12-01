@@ -60,7 +60,46 @@ app.add_middleware(
 def health_check():
     return {"status": "ok", "service": "backend-gateway"}
 
-# /recommend 엔드포인트 구현
+
+
+# =========================================
+# 🔥 텍스트 필드 전체 번역 함수 (주석 유지)
+# =========================================
+async def translate_item_fields(item: Dict[str, Any], target_lang: str) -> Dict[str, Any]:
+    """
+    item(dict) 안의 name, main_ingredients, reason을 target_lang으로 번역 후 덮어쓴다.
+    (name_en 대신 name 사용)
+    """
+
+    # 🌶 name_en → 사용자 언어 name 변환
+    name_en = item.get("name_en", "")
+    if name_en:
+        translated_name = await translate_text(name_en, target_lang)
+        item["name"] = translated_name
+    else:
+        # name_en 없으면 한국어 이름이라도 name에 넣기
+        item["name"] = item.get("name_ko", "Unknown")
+
+    # main_ingredients, reason 번역
+    fields = ["main_ingredients", "reason"]
+    for field in fields:
+        text = item.get(field, "")
+        if text:
+            translated = await translate_text(text, target_lang)
+            item[field] = translated
+
+    return item
+
+
+async def translate_full_items(items: List[Dict[str, Any]], target_lang: str):
+    tasks = [translate_item_fields(item, target_lang) for item in items]
+    return await asyncio.gather(*tasks)
+
+
+
+# =========================================
+# /recommend 엔드포인트 구현 (주석 그대로 유지)
+# =========================================
 @app.post("/recommend", response_model=RecommendationResponse)
 async def recommend_kfood(
     foreign_food: str = Query(..., description="사용자가 입력한 외국 음식 이름")
@@ -74,6 +113,7 @@ async def recommend_kfood(
         DetectorFactory.seed = 0  # langdetect 일관성 보장
         source_lang = detect(foreign_food)
         logger.info(f"Detected input language: {source_lang}")
+
         #표준 언어(영어) 변환
         if source_lang != "en":
             standard_input = await translate_text(foreign_food, target_lang="en")
@@ -105,21 +145,43 @@ async def recommend_kfood(
             GEMINI_SYNC_CLIENT, food_profile, candidate_items, standard_input
         )
         
-        # 이유 번역
-        translated_items_dicts = await translate_results_async(justified_items_dicts, target_lang=source_lang)
+        # ingredients 문자열 통합 (번역 전에 처리)
+        for item in justified_items_dicts:
+            if isinstance(item.get("ingredients"), list):
+                item["main_ingredients"] = ", ".join(item["ingredients"])
+            elif isinstance(item.get("ingredients"), str):
+                item["main_ingredients"] = item["ingredients"]
+
+        # 전체 필드를 사용자 입력 언어로 번역
+        translated_items = await translate_full_items(justified_items_dicts, target_lang=source_lang)
+
         
         # 6. Dict -> Pydantic Model 변환
         final_items = []
-        for item in translated_items_dicts:
+        for item in translated_items:
+
+            # 🔥 음식 이름 우선순위 (name → name_en → name_ko)
+            # name: 이미 사용자 언어로 번역됨
+            translated_name = item.get("name")
+            name_en = item.get("name_en")
+            name_ko = item.get("name_ko")
+
+            # ⭐ 한국어 병기 규칙
+            if source_lang == "ko":
+                # 한국어 사용자 → 한국어 이름 우선
+                name_value = name_ko or translated_name or name_en or "Unknown"
+            else:
+                # 외국인 사용자 → name (사용자언어) + 한국어 병기
+                if name_ko:
+                    name_value = f"{translated_name} ({name_ko})"
+                else:
+                    name_value = translated_name or name_en or "Unknown"
+
             ingredients_str = item.get('main_ingredients', '')
-            if isinstance(item.get('ingredients'), list):
-                 ingredients_str = ", ".join(item['ingredients'])
-            elif isinstance(item.get('ingredients'), str):
-                 ingredients_str = item['ingredients']
 
             final_items.append(
                 RecommendationItem(
-                    name=item.get('name_en', 'Unknown'),
+                    name=name_value,
                     spicy_level=int(item.get('spicy_level', 0)),
                     main_ingredients=ingredients_str,
                     reason=item.get('reason', ''),
@@ -138,6 +200,7 @@ async def recommend_kfood(
             status_code=503, 
             detail=f"Service unavailable: Internal communication failed (FAISS/Translate Service)."
         )
+
     except Exception as e:
         logger.error(f"Internal Server Error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
