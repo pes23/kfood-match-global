@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: kfood-recommender
-        image: localhost:5000/kfood-recommender:latest
+        image: kfood-recommender:latest
         ports:
         - containerPort: 8000
         imagePullPolicy: IfNotPresent

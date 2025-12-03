@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: kfood-frontend
-        image: localhost:5000/kfood-frontend:latest
+        image: kfood-frontend:latest
         ports:
         - containerPort: 3000
         imagePullPolicy: IfNotPresent

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: translate-service
-        image: localhost:5000/translate-service:latest
+        image: translate-service:latest
         ports:
         - containerPort: 8001
         imagePullPolicy: IfNotPresent

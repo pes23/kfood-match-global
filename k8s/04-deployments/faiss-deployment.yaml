@@ -19,8 +19,8 @@ spec:
         runAsUser: 65534 
       initContainers:
       - name: init-data-copier
-        image: localhost:5000/faiss-db-service:latest 
-        imagePullPolicy: Never
+        image: faiss-db-service:latest 
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
         args:
         - "-c"
@@ -51,8 +51,8 @@ spec:
           mountPath: /faiss-data
       containers:
       - name: faiss-db-server
-        image: localhost:5000/faiss-db-service:latest 
-        imagePullPolicy: Never
+        image: faiss-db-service:latest 
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8002
         command: ["uvicorn"]
