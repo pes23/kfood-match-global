@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kfood-frontend-deployment
+  labels:
+    app: kfood-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kfood-frontend
+  template:
+    metadata:
+      labels:
+        app: kfood-frontend
+    spec:
+      containers:
+      - name: kfood-frontend
+        image: localhost:5000/kfood-frontend:latest
+        ports:
+        - containerPort: 3000
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://localhost:8000"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5

@@ -1,0 +1,32 @@
+# Main Backend Service (NodePort) 
+apiVersion: v1
+kind: Service
+metadata:
+  name: kfood-recommender-service
+  labels:
+    app: kfood-recommender
+spec:
+  selector:
+    app: kfood-recommender
+  type: NodePort 
+  ports:
+    - protocol: TCP
+      port: 80 # Service ClusterIP 포트 (80으로 접근)
+      targetPort: 8000 # 컨테이너 포트
+      nodePort: 30080
+# 2. Frontend Service (NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kfood-frontend-service
+  labels:
+    app: kfood-frontend
+spec:
+  selector:
+    app: kfood-frontend
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80 # Ingress가 바라볼 포트
+      targetPort: 3000 # Next.js 컨테이너 포트
+      nodePort: 30081

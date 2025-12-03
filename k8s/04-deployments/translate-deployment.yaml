@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: translate-service-deployment
+  labels:
+    app: translate-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: translate-service
+  template:
+    metadata:
+      labels:
+        app: translate-service
+    spec:
+      containers:
+      - name: translate-service
+        image: localhost:5000/translate-service:latest
+        ports:
+        - containerPort: 8001
+        imagePullPolicy: IfNotPresent
+        env: 
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kfood-recommender-secrets 
+              key: GEMINI_API_KEY
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5

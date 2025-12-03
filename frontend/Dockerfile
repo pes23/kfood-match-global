@@ -20,7 +20,7 @@ RUN npm run build
 FROM node:18-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # Next.js는 standalone 모드로 런타임에 필요한 파일만 카피
 COPY --from=builder /app/.next/standalone ./

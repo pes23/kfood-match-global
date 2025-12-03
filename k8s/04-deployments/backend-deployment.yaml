@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kfood-recommender-deployment
+  labels:
+    app: kfood-recommender
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kfood-recommender
+  template:
+    metadata:
+      labels:
+        app: kfood-recommender
+    spec:
+      containers:
+      - name: kfood-recommender
+        image: localhost:5000/kfood-recommender:latest
+        ports:
+        - containerPort: 8000
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kfood-recommender-secrets
+              key: GEMINI_API_KEY
+        # 2. 서비스 주소 (ConfigMap에서 로드)
+        - name: TRANSLATE_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kfood-recommender-config
+              key: TRANSLATE_SERVICE_URL
+        - name: FAISS_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kfood-recommender-config
+              key: FAISS_SERVICE_URL
+        # 상태 확인 Probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
