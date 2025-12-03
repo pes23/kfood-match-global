@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kfood-recommender-config
+data:
+  # 내부 서비스 주소 
+  TRANSLATE_SERVICE_URL: "http://translate-service-service:8001"
+  FAISS_SERVICE_URL: "http://faiss-db-service:8002"
+  
+  # PVC 마운트 경로
+  FAISS_INDEX_PATH: "/faiss-data/kfood_faiss.index"
+  METADATA_PATH: "/faiss-data/kfood_metadata.json"

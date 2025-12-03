@@ -1,0 +1,17 @@
+# backend-svc-temp.yaml 파일 내용 (임시 생성)
+# -------------------- 1. Main Backend Service (NodePort) --------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: kfood-recommender-service
+  labels:
+    app: kfood-recommender
+spec:
+  selector:
+    app: kfood-recommender
+  type: NodePort 
+  ports:
+    - protocol: TCP
+      port: 80 
+      targetPort: 8000 
+      nodePort: 30080

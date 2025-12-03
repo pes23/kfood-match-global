@@ -1,0 +1,27 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: kfood-multinode-cluster
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30080 
+    hostPort: 8000       
+    listenAddress: "127.0.0.1"
+    protocol: TCP
+  - containerPort: 30081 
+    hostPort: 8001       
+    listenAddress: "127.0.0.1"
+    protocol: TCP
+  extraMounts:
+  - hostPath: /tmp/kind/kfood-pv-data # 호스트 PC의 임시 저장소 디렉토리
+    containerPath: /mnt/kfood-pv-data # 컨테이너 내부의 마운트 경로
+
+- role: worker
+  extraMounts:
+  - hostPath: /tmp/kind/kfood-pv-data
+    containerPath: /mnt/kfood-pv-data
+
+- role: worker
+  extraMounts:
+  - hostPath: /tmp/kind/kfood-pv-data
+    containerPath: /mnt/kfood-pv-data

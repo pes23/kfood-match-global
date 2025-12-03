@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: faiss-db-deployment
+  labels:
+    app: faiss-db
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: faiss-db
+  template:
+    metadata:
+      labels:
+        app: faiss-db
+    spec:
+      securityContext:
+        fsGroup: 65534
+        runAsUser: 65534 
+      initContainers:
+      - name: init-data-copier
+        image: localhost:5000/faiss-db-service:latest 
+        imagePullPolicy: Never
+        command: ["/bin/sh"]
+        args:
+        - "-c"
+        - |
+          echo "Starting final data copy attempt...";
+          
+          # 🚨 최종 수정: 파일 복사 명령어를 분리하고 실패 시 메시지 출력 후 종료
+          
+          # 인덱스 파일 복사 및 검증
+          cp -v /app/data/kfood_faiss.index /faiss-data/kfood_faiss.index
+          if [ $? -ne 0 ]; then 
+              echo "FATAL: Index file copy failed. Check Dockerfile COPY path for /app/data/kfood_faiss.index";
+              exit 1; 
+          fi
+          
+          # 메타데이터 파일 복사 및 검증
+          cp -v /app/data/kfood_metadata.json /faiss-data/kfood_metadata.json
+          if [ $? -ne 0 ]; then 
+              echo "FATAL: Metadata file copy failed.";
+              exit 1; 
+          fi
+          
+          echo "Data copy completed. Success!";
+          
+
+        volumeMounts:
+        - name: faiss-data-volume
+          mountPath: /faiss-data
+      containers:
+      - name: faiss-db-server
+        image: localhost:5000/faiss-db-service:latest 
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8002
+        command: ["uvicorn"]
+        args: ["app.faiss_utils:app", "--host", "0.0.0.0", "--port", "8002"]
+        env:
+        # ConfigMap에서 FAISS 인덱스 로드 경로를 지정
+        - name: FAISS_INDEX_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: kfood-recommender-config
+              key: FAISS_INDEX_PATH
+        - name: METADATA_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: kfood-recommender-config
+              key: METADATA_PATH
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30 
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        volumeMounts:
+        # PVC가 마운트될 경로
+        - name: faiss-data-volume
+          mountPath: /faiss-data
+      volumes:
+      # PVC 참조
+      - name: faiss-data-volume
+        persistentVolumeClaim:
+          claimName: kfood-faiss-pvc
