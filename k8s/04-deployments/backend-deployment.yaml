@@ -27,7 +27,6 @@ spec:
             secretKeyRef:
               name: kfood-recommender-secrets
               key: GEMINI_API_KEY
-        # 2. 서비스 주소 (ConfigMap에서 로드)
         - name: TRANSLATE_SERVICE_URL
           valueFrom:
             configMapKeyRef:
@@ -38,6 +37,11 @@ spec:
             configMapKeyRef:
               name: kfood-recommender-config
               key: FAISS_SERVICE_URL
+        resources:
+          requests:
+            cpu: "500m"
+          limits:
+            cpu: "1000m"
         # 상태 확인 Probe
         livenessProbe:
           httpGet:
