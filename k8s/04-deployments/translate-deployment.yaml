@@ -16,10 +16,10 @@ spec:
     spec:
       containers:
       - name: translate-service
-        image: translate-service:latest
+        image: pes112/translate-service:latest
         ports:
         - containerPort: 8001
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         env: 
         - name: GEMINI_API_KEY
           valueFrom:

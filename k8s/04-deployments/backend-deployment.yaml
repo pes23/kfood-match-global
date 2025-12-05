@@ -16,10 +16,11 @@ spec:
     spec:
       containers:
       - name: kfood-recommender
-        image: kfood-recommender:latest
+        image: pes112/kfood-recommender:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        imagePullPolicy: IfNotPresent
+        
         env:
         - name: GEMINI_API_KEY
           valueFrom:

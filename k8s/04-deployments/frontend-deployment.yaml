@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
         - name: kfood-frontend
-          image: kfood-frontend:latest
-          imagePullPolicy: IfNotPresent
+          image: pes112/kfood-frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:
