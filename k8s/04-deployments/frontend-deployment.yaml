@@ -14,24 +14,39 @@ spec:
       labels:
         app: kfood-frontend
     spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
       containers:
-      - name: kfood-frontend
-        image: localhost:5000/kfood-frontend:latest
-        ports:
-        - containerPort: 3000
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: NEXT_PUBLIC_API_URL
-          value: "http://localhost:8000"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: kfood-frontend
+          image: pes112/kfood-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: RECOMMENDER_INTERNAL_URL
+              value: "http://kfood-recommender-service:80"
+            - name: NEXT_PUBLIC_RECOMMENDER_URL
+              value: "http://localhost:30080"
+            - name: HOST 
+              value: "0.0.0.0"
+            - name: PORT # PORT 환경 변수 추가
+              value: "3000"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"

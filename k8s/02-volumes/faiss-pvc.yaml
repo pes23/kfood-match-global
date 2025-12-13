@@ -3,6 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: kfood-faiss-pvc
 spec:
+  storageClassName: standard 
   accessModes:
     - ReadWriteOnce 
   resources:

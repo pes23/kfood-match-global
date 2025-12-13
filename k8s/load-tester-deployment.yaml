@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-tester
+  labels:
+    app: load-tester
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-tester
+  template:
+    metadata:
+      labels:
+        app: load-tester
+    spec:
+      containers:
+      - name: load-tester
+        image: busybox
+        # 백엔드 서비스에 부하를 주는 무한 루프 wget 명령
+        command: ["sh", "-c"]
+        args: ["while true; do wget -q -O- http://kfood-recommender-service:80/docs > /dev/null; done"]
+        resources:
+          # CPU 부하를 확실하게 발생시키기 위해 리소스 요청/제한을 높게 설정
+          requests:
+            cpu: "200m"
+          limits:
+            cpu: "400m"

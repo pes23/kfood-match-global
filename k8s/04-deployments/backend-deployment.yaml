@@ -16,17 +16,17 @@ spec:
     spec:
       containers:
       - name: kfood-recommender
-        image: localhost:5000/kfood-recommender:latest
+        image: pes112/kfood-recommender:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        imagePullPolicy: IfNotPresent
+        
         env:
         - name: GEMINI_API_KEY
           valueFrom:
             secretKeyRef:
               name: kfood-recommender-secrets
               key: GEMINI_API_KEY
-        # 2. 서비스 주소 (ConfigMap에서 로드)
         - name: TRANSLATE_SERVICE_URL
           valueFrom:
             configMapKeyRef:
@@ -37,6 +37,11 @@ spec:
             configMapKeyRef:
               name: kfood-recommender-config
               key: FAISS_SERVICE_URL
+        resources:
+          requests:
+            cpu: "500m"
+          limits:
+            cpu: "1000m"
         # 상태 확인 Probe
         livenessProbe:
           httpGet:
